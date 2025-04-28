@@ -1,6 +1,7 @@
 import os
 import shutil
 import sys
+from pathlib import Path
 
 
 def unique_filename(path):
@@ -13,42 +14,49 @@ def unique_filename(path):
     return new_path
 
 
-def collect_files_with_depth(input_dir, output_dir, d):
-    for root, dirs, files in os.walk(input_dir):
-        depth = root[len(input_dir):].count(os.sep) + 1
-        
-        if depth <= max_depth:
-            relative_path = os.path.relpath(root, input_dir)
-            end_dir = os.path.join(output_dir, relative_path)
-            
-            if not os.path.exists(end_dir):
-                os.makedirs(end_dir)
+def collect_files_with_depth(src_dir: str, dst_dir: str, max_depth: int) -> None:
+    src_dir = Path(src_dir).resolve()
+    dst_dir = Path(dst_dir).resolve()
 
-            for file in files:
-                source_file = os.path.join(root, file)
-                end_file = os.path.join(end_dir, file)
-                shutil.copy2(source_file, end_file)
-        else:
-            relative_path = os.path.relpath(root, input_dir)
-            output_dir2 = os.path.join(output_dir, *relative_path.split(os.sep)[max_depth-1:])
-            
-            if not os.path.exists(output_dir2):
-                os.makedirs(output_dir2)
+    if not src_dir.is_dir():
+        raise ValueError(f"{src_dir}: dir does not exist")
 
-            for f1 in files:
-                source_file = os.path.join(root, f1)
-                end_file = os.path.join(output_dir2, f1)
-                shutil.copy2(source_file, end_file)
+    dst_dir.mkdir(parents=True, exist_ok=True)
+
+    created_dirs = set()
+
+    for root, _, files in os.walk(src_dir):
+        current_path = Path(root)
+
+        for file in files:
+            src_file = current_path / file
+            file_relative_path = src_file.relative_to(src_dir)
+            depth = len(file_relative_path.parts)
+
+            if depth <= max_depth:
+                target_file_path = dst_dir.joinpath(*file_relative_path.parts)
+            else:
+                trimmed_parts = file_relative_path.parts[depth - max_depth:-1]
+                target_file_path = dst_dir.joinpath(*trimmed_parts, file)
+
+            parent_dir = target_file_path.parent
+
+            if parent_dir not in created_dirs:
+                parent_dir.mkdir(parents=True, exist_ok=True)
+                created_dirs.add(parent_dir)
+
+            shutil.copy2(src_file, target_file_path)
 
 
-def collect_files(input_dir, output_dir):
-    for item in os.listdir(input_dir):
-        item_path = os.path.join(input_dir, item)
+
+def collect_files(src_dir: str, dst_dir: str) -> None:
+    for item in os.listdir(src_dir):
+        item_path = os.path.join(src_dir, item)
 
         if os.path.isdir(item_path):
-            collect_files(item_path, output_dir)
+            collect_files(item_path, dst_dir)
         elif os.path.isfile(item_path):
-            end_path = os.path.join(output_dir, item)
+            end_path = os.path.join(dst_dir, item)
             end_path = unique_filename(end_path)
             shutil.copy2(item_path, end_path)
 
