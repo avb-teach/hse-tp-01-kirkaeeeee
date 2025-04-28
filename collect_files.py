@@ -63,6 +63,6 @@ if __name__ == "__main__":
         max_depth = int(sys.argv[3])
 
     if max_depth is not None:
-        collect_files_with_depth(input_dir, output_dir, max_depth)
+        collect_files_with_depth(input_dir, output_dir, max_depth + 1)
     else:
         collect_files(input_dir, output_dir)
